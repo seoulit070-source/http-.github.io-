@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#5a3a22">
+<title>훈민정음 퀴즈 · 중세 국어</title>
+<style>
+  :root{
+    --hanji:#f4ead4; --hanji2:#eadbb8; --ink:#2a1d12; --brown:#5a3a22; --brown2:#7b5534;
+    --red:#a8322a; --red2:#7a2019; --gold:#c39a4a; --line:#cdb88c; --muted:#7a6650;
+    --ok:#2e7d4f; --bad:#b3362b;
+    --font:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans CJK KR","Noto Sans KR",sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%}
+  body{
+    font-family:var(--font); color:var(--ink); background-color:var(--hanji);
+    /* 한지 질감 + 훈민정음 기본자 무늬 */
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='260'><g fill='%235a3a22' fill-opacity='0.07' font-family='serif' font-size='40' font-weight='700'><text x='14' y='52'>ㄱ</text><text x='120' y='70'>ㆍ</text><text x='70' y='120'>ㄴ</text><text x='170' y='150'>ㅁ</text><text x='18' y='190'>ㅅ</text><text x='110' y='220'>ㅇ</text><text x='175' y='250'>ㅡ</text><text x='60' y='255'>ㅣ</text></g></svg>"),
+      radial-gradient(ellipse at 15% 0%, rgba(195,154,74,.22), transparent 55%),
+      radial-gradient(ellipse at 100% 100%, rgba(168,50,42,.10), transparent 50%);
+    background-attachment: fixed;
+    padding: max(14px, env(safe-area-inset-top)) 14px max(20px, env(safe-area-inset-bottom));
+  }
+  /* 양옆 책 장정(오침안정법 느낌의 끈 장식) */
+  body::before,body::after{
+    content:"";position:fixed;top:0;bottom:0;width:12px;z-index:0;pointer-events:none;
+    background:repeating-linear-gradient(180deg,var(--brown) 0 46px,transparent 46px 60px);opacity:.35
+  }
+  body::before{left:0} body::after{right:0}
+
+  .wrap{max-width:560px;margin:0 auto;position:relative;z-index:1}
+  .hidden{display:none!important}
+  .panel{
+    background:rgba(255,250,238,.94); border:2px solid var(--line); border-radius:20px;
+    box-shadow:0 10px 26px rgba(70,45,15,.16); padding:22px 18px; position:relative;
+  }
+  .panel::before{content:"";position:absolute;inset:6px;border:1px solid var(--line);border-radius:15px;pointer-events:none}
+
+  /* ===== 시작 화면 ===== */
+  .hero{display:flex;gap:16px;align-items:stretch;margin-bottom:18px}
+  .book{flex:none;width:96px}
+  .book svg{width:100%;height:auto;display:block;filter:drop-shadow(0 4px 6px rgba(0,0,0,.2))}
+  .title-box{flex:1;display:flex;flex-direction:column;justify-content:center}
+  .eyebrow{font-size:14px;font-weight:700;color:var(--red);letter-spacing:1px}
+  h1{margin:4px 0 6px;font-size:clamp(28px,8vw,38px);line-height:1.2;letter-spacing:-1px;word-break:keep-all}
+  .lead{margin:0;color:var(--muted);font-size:16px;line-height:1.5;word-break:keep-all}
+  .vert{
+    writing-mode:vertical-rl; font-size:22px; font-weight:700; letter-spacing:4px; color:var(--brown);
+    border-left:2px solid var(--line); padding-left:10px; opacity:.85
+  }
+  .info{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 18px}
+  .pill{background:var(--hanji2);color:var(--brown);font-weight:700;font-size:14px;padding:6px 12px;border-radius:999px}
+  label.lb{display:block;font-weight:800;font-size:17px;margin-bottom:8px}
+  .name{
+    width:100%;font:inherit;font-size:20px;padding:16px;border-radius:14px;border:2px solid var(--line);
+    background:#fff;outline:none
+  }
+  .name:focus{border-color:var(--brown)}
+  .btn{
+    display:block;width:100%;min-height:64px;font:inherit;font-size:22px;font-weight:800;border:none;border-radius:16px;
+    cursor:pointer;color:#fff;background:var(--red);box-shadow:0 5px 0 var(--red2);margin-top:16px;
+    touch-action:manipulation;transition:transform .08s
+  }
+  .btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--red2)}
+  .btn.brown{background:var(--brown);box-shadow:0 5px 0 #3a2414}
+  .btn.light{background:#fff;color:var(--brown);border:2px solid var(--line);box-shadow:0 4px 0 var(--line)}
+  .btn:disabled{opacity:.45}
+  .small-btn{background:none;border:none;color:var(--muted);font:inherit;font-size:14px;text-decoration:underline;padding:10px;cursor:pointer}
+  .center{text-align:center}
+  .warn{color:var(--bad);font-size:15px;font-weight:700;min-height:20px;margin-top:6px}
+  .sound-toggle{position:fixed;right:18px;bottom:max(18px,env(safe-area-inset-bottom));z-index:60;box-shadow:0 4px 10px rgba(0,0,0,.18);background:#fff;border:2px solid var(--line);border-radius:12px;width:48px;height:48px;font-size:22px;cursor:pointer}
+
+  /* ===== 문제 화면 ===== */
+  .qhead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .qno{
+    flex:none;width:58px;height:58px;border-radius:12px;background:var(--red);color:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;font-size:22px;line-height:1
+  }
+  .qno small{font-size:11px;font-weight:700;opacity:.85;margin-top:3px}
+  .bar{flex:1;height:14px;border-radius:999px;background:var(--hanji2);overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--red));transition:width .35s}
+  .live{flex:none;font-weight:900;color:var(--brown);font-size:18px}
+  .cat{display:inline-block;background:var(--brown);color:#fff;font-size:14px;font-weight:700;padding:5px 12px;border-radius:999px;margin-bottom:10px}
+  .q{font-size:clamp(20px,5.6vw,24px);font-weight:800;line-height:1.55;margin:0 0 10px;word-break:keep-all}
+  .q u{text-decoration:none;color:var(--red);border-bottom:3px solid var(--gold)}
+  .source{
+    background:var(--hanji);border-left:6px solid var(--gold);border-radius:10px;padding:12px 14px;margin:4px 0 8px;
+    font-size:clamp(19px,5.2vw,22px);line-height:1.7;word-break:keep-all
+  }
+  .source small{display:block;font-size:13px;color:var(--muted)}
+  .opts{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+  .opt{
+    display:flex;align-items:center;gap:12px;width:100%;min-height:68px;text-align:left;font:inherit;
+    font-size:clamp(17px,4.8vw,20px);line-height:1.45;padding:12px 14px;border-radius:16px;
+    border:2px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;word-break:keep-all;
+    box-shadow:0 3px 0 var(--line);touch-action:manipulation;transition:transform .08s
+  }
+  .opt:active:not(:disabled){transform:translateY(3px);box-shadow:none}
+  .opt .k{
+    flex:none;width:40px;height:40px;border-radius:50%;background:var(--hanji2);color:var(--brown);
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px
+  }
+  .opt.correct{border-color:var(--ok);background:#e6f4ea;box-shadow:0 3px 0 var(--ok)}
+  .opt.correct .k{background:var(--ok);color:#fff}
+  .opt.wrong{border-color:var(--bad);background:#fbe8e5;box-shadow:0 3px 0 var(--bad)}
+  .opt.wrong .k{background:var(--bad);color:#fff}
+  .opt:disabled{cursor:default}
+  .judge{margin-top:14px;font-size:22px;font-weight:900;text-align:center;min-height:30px}
+  .judge.ok{color:var(--ok)} .judge.bad{color:var(--bad)}
+
+  .burst{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
+  .burst span{position:absolute;font-size:30px;animation:fly 1s ease-out forwards}
+  @keyframes fly{from{opacity:1;transform:translate(0,0) scale(.6)}to{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.3) rotate(40deg)}}
+  .praise{
+    position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.5);z-index:51;pointer-events:none;
+    background:var(--red);color:#fff;font-size:30px;font-weight:900;padding:14px 26px;border-radius:999px;
+    opacity:0;transition:all .3s;box-shadow:0 8px 20px rgba(0,0,0,.25);white-space:nowrap
+  }
+  .praise.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
+  /* ===== 결과 화면 ===== */
+  .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 14px;position:sticky;top:6px;z-index:3}
+  .tab{min-height:56px;font:inherit;font-size:17px;font-weight:800;border-radius:14px;border:2px solid var(--line);background:#fff;color:var(--brown);cursor:pointer}
+  .tab.on{background:var(--brown);color:#fff;border-color:var(--brown)}
+  .score-ring{width:170px;height:170px;margin:6px auto 4px;position:relative}
+  .score-ring svg{transform:rotate(-90deg)}
+  .score-ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .score-ring b{font-size:48px;color:var(--red);line-height:1}
+  .score-ring span{font-size:15px;color:var(--muted);font-weight:700;margin-top:4px}
+  .msg{font-size:20px;font-weight:800;color:var(--brown);margin:6px 0 2px}
+  .podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:20px 0 12px}
+  .pod{flex:1;max-width:150px;text-align:center}
+  .pod .nm{font-weight:900;font-size:16px;word-break:keep-all;overflow-wrap:anywhere;margin-bottom:4px}
+  .pod .sc{font-size:14px;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .pod .blk{border-radius:12px 12px 0 0;color:#fff;font-weight:900;font-size:30px;display:flex;align-items:flex-start;justify-content:center;padding-top:10px}
+  .pod.r1 .blk{height:130px;background:linear-gradient(#d4a943,#a77d22)}
+  .pod.r2 .blk{height:96px;background:linear-gradient(#b9b9b9,#8a8a8a)}
+  .pod.r3 .blk{height:72px;background:linear-gradient(#c58a55,#8f5a2e)}
+  .pod.me .nm{color:var(--red)}
+  .rank-note{font-size:14px;color:var(--muted);text-align:center;line-height:1.5}
+  .myrank{background:var(--hanji);border-radius:12px;padding:12px;text-align:center;font-weight:800;margin-top:10px}
+
+  .exp{border:2px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;background:#fff}
+  .exp.o{border-left:8px solid var(--ok)} .exp.x{border-left:8px solid var(--bad)}
+  .exp .h{display:flex;align-items:center;gap:8px;font-weight:900;font-size:16px;margin-bottom:6px}
+  .exp .mark{font-size:22px}
+  .exp .qq{font-weight:700;font-size:17px;line-height:1.5;word-break:keep-all}
+  .exp .ans{margin:8px 0 4px;font-size:16px}
+  .exp .ans b{color:var(--ok)}
+  .exp .mine{color:var(--bad);font-size:15px}
+  .exp .why{background:var(--hanji);border-radius:10px;padding:10px 12px;font-size:16px;line-height:1.6;margin-top:8px;word-break:keep-all}
+
+  .concept h3{font-size:19px;margin:18px 0 8px;color:var(--red);display:flex;align-items:center;gap:8px}
+  .concept h3::before{content:"";width:8px;height:22px;background:var(--gold);border-radius:3px}
+  .concept p,.concept li{font-size:16px;line-height:1.7;word-break:keep-all}
+  .concept ul{padding-left:20px;margin:6px 0}
+  .concept .term{font-weight:800;color:var(--brown)}
+  .tl{display:flex;border-radius:10px;overflow:hidden;font-size:13px;font-weight:800;color:#fff;text-align:center}
+  .tl div{flex:1;padding:8px 2px}
+  table.t{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0}
+  table.t th,table.t td{border:1px solid var(--line);padding:8px;text-align:center}
+  table.t th{background:var(--hanji2)}
+  .yb{background:var(--hanji);border-radius:12px;padding:12px 14px;font-size:18px;line-height:1.8;word-break:keep-all}
+  .yb small{display:block;font-size:14px;color:var(--muted);line-height:1.6;margin-top:6px}
+</style>
+</head>
+<body>
+<button class="sound-toggle" id="soundBtn" aria-label="소리 켜기/끄기">🔊</button>
+<div class="wrap">
+
+  <!-- ================= 1. 시작 화면 ================= -->
+  <section id="start" class="panel">
+    <div class="hero">
+      <div class="book">
+        <!-- 옛 책(훈민정음 책) 모양 그림 -->
+        <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="92" height="132" rx="3" fill="#7b5534"/>
+          <rect x="4" y="4" width="92" height="132" rx="3" fill="url(#g)"/>
+          <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".18"/><stop offset=".15" stop-color="#000" stop-opacity="0"/></linearGradient></defs>
+          <g stroke="#e9d9b4" stroke-width="2"><line x1="14" y1="4" x2="14" y2="136"/></g>
+          <g fill="#e9d9b4"><circle cx="14" cy="20" r="3"/><circle cx="14" cy="48" r="3"/><circle cx="14" cy="76" r="3"/><circle cx="14" cy="104" r="3"/><circle cx="14" cy="126" r="3"/></g>
+          <rect x="58" y="14" width="26" height="92" fill="#f4ead4" stroke="#c39a4a" stroke-width="1.5"/>
+          <g font-family="serif" font-size="17" font-weight="700" fill="#2a1d12" text-anchor="middle">
+            <text x="71" y="34">訓</text><text x="71" y="54">民</text><text x="71" y="74">正</text><text x="71" y="94">音</text>
+          </g>
+        </svg>
+      </div>
+      <div class="title-box">
+        <div class="eyebrow">공통국어2 · 변화하는 국어</div>
+        <h1>중세 국어<br>퀴즈 도전!</h1>
+        <p class="lead">교과서 본문으로 확인하는 형성평가</p>
+      </div>
+      <div class="vert">나랏말ᄊᆞ미</div>
+    </div>
+
+    <div class="info">
+      <span class="pill">4지선다 15문항</span>
+      <span class="pill">문제를 다 풀면 해설</span>
+      <span class="pill">1~3위 랭킹</span>
+    </div>
+
+    <label class="lb" for="nameInput">이름(또는 번호)을 입력하세요</label>
+    <input id="nameInput" class="name" maxlength="12" placeholder="예) 10101 홍길동" autocomplete="off">
+    <div class="warn" id="warn"></div>
+    <button class="btn" id="startBtn">시작하기 ▶</button>
+  </section>
+
+  <!-- ================= 2. 문제 화면 ================= -->
+  <section id="quiz" class="panel hidden">
+    <div class="qhead">
+      <div class="qno"><span id="qn">1</span><small>/ 15</small></div>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="live" id="live">0점</div>
+    </div>
+    <span class="cat" id="cat">시대 구분</span>
+    <p class="q" id="q"></p>
+    <div class="source hidden" id="src"></div>
+    <div class="opts" id="opts"></div>
+    <div class="judge" id="judge"></div>
+    <button class="btn brown hidden" id="nextBtn">다음 문제 ▶</button>
+  </section>
+
+  <!-- ================= 3. 점수·해설 화면 ================= -->
+  <section id="result" class="panel hidden">
+    <div class="center">
+      <div class="eyebrow" id="who"></div>
+      <div class="score-ring">
+        <svg width="170" height="170"><circle cx="85" cy="85" r="72" stroke="#eadbb8" stroke-width="14" fill="none"/>
+          <circle id="ring" cx="85" cy="85" r="72" stroke="#a8322a" stroke-width="14" fill="none" stroke-linecap="round" stroke-dasharray="452.4" stroke-dashoffset="452.4" style="transition:stroke-dashoffset 1.2s"/></svg>
+        <div><b id="scoreNum">0</b><span id="scoreSub">점</span></div>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab on" data-t="rank">🏆 랭킹</button>
+      <button class="tab" data-t="exp">📝 해설</button>
+      <button class="tab" data-t="concept">📜 개념</button>
+    </div>
+
+    <div id="t-rank">
+      <div class="podium" id="podium"></div>
+      <div class="myrank" id="myrank"></div>
+      <p class="rank-note">랭킹은 맞힌 개수 순이며, 같으면 빨리 푼 사람이 앞섭니다.<br>이 기기(브라우저)에서 푼 기록끼리 비교합니다.</p>
+    </div>
+    <div id="t-exp" class="hidden"></div>
+    <div id="t-concept" class="hidden concept"></div>
+
+    <button class="btn" id="againBtn">다시 도전하기 ↻</button>
+    <button class="btn light" id="homeBtn">처음 화면으로</button>
+    <div class="center"><button class="small-btn" id="resetBtn">랭킹 기록 초기화(교사용)</button></div>
+  </section>
+</div>
+
+<div class="praise" id="praise"></div>
+<div class="burst" id="burst"></div>
+
+<script>
+/* =========================================================
+   문항: 교과서 「1. 변화하는 국어 – ① 중세 국어의 특징 알아보기」
+   (140~141쪽) 본문·날개·자료 풀이에 제시된 내용만으로 구성
+   ========================================================= */
+const QUESTIONS = [
+  { cat:"시대 구분",
+    q:"교과서에서 <u>중세 국어</u>라고 한 시기로 알맞은 것은?",
+    o:["신라의 삼국 통일(676)부터 고려 건국(918) 전까지","고려가 건국된 10세기 초부터 임진왜란이 일어난 16세기 말까지","훈민정음 창제(1443)부터 갑오개혁(1894)까지","임진왜란(1592)부터 갑오개혁(1894)까지"],
+    a:1,
+    ex:"고려가 건국된 10세기 초부터 임진왜란이 일어난 16세기 말까지의 국어를 '중세 국어'라고 한다." },
+
+  { cat:"음운",
+    q:"중세 국어에는 있었으나 현대 국어에는 없는 음운 'ㅿ, ㆁ, ㆍ'의 이름을 바르게 짝지은 것은?",
+    o:["ㅿ-반치음, ㆁ-옛이응, ㆍ-아래아","ㅿ-옛이응, ㆁ-반치음, ㆍ-아래아","ㅿ-아래아, ㆁ-옛이응, ㆍ-반치음","ㅿ-반치음, ㆁ-아래아, ㆍ-옛이응"],
+    a:0,
+    ex:"중세 국어에는 오늘날에는 없는 'ㅿ(반치음)', 'ㆁ(옛이응)', 'ㆍ(아래아)' 같은 음운이 있었다." },
+
+  { cat:"음운",
+    q:"'ㅄ, ㅶ, ㅳ' 등과 같이 자음이 단어의 첫머리에 연속으로 둘 이상 오는 것을 무엇이라고 하는가?",
+    o:["성조","어두 자음군","8종성법","모음 조화"],
+    a:1,
+    ex:"중세 국어에서는 'ㅄ, ㅶ, ㅳ' 등과 같이 자음이 단어의 첫머리에 연속으로 둘 이상 오는 어두 자음군이 있었다." },
+
+  { cat:"음운",
+    q:"중세 국어의 모음 중 <u>양성 모음</u>으로만 묶인 것은?",
+    o:["ㅡ, ㅜ, ㅓ","ㆍ, ㅗ, ㅏ","ㅣ, ㅗ, ㅓ","ㆍ, ㅡ, ㅣ"],
+    a:1,
+    ex:"양성 모음은 'ㆍ, ㅗ, ㅏ', 음성 모음은 'ㅡ, ㅜ, ㅓ', 중성 모음은 'ㅣ'이다. 중세 국어에서는 양성 모음은 양성 모음끼리, 음성 모음은 음성 모음끼리 어울리는 모음 조화가 현대 국어에 비해 엄격하게 지켜졌다." },
+
+  { cat:"음운",
+    q:"음절 안에서 나타나는 소리의 높낮이로서 단어의 뜻을 구별하는 것은?",
+    o:["방점","모음 조화","성조","이어 적기"],
+    a:2,
+    ex:"중세 국어에는 음절 안에서 나타나는 소리의 높낮이로서 단어의 뜻을 구별하는 '성조'가 있었다. (성조를 표시하려고 찍은 점은 '방점'이다.)" },
+
+  { cat:"표기",
+    q:"성조와 방점 표기를 바르게 짝지은 것은?",
+    o:["평성(낮은 소리) – 점을 한 개 찍음","거성(높은 소리) – 점을 찍지 않음","상성(처음은 낮고 나중은 높은 소리) – 점을 두 개 찍음","상성(처음은 낮고 나중은 높은 소리) – 점을 한 개 찍음"],
+    a:2,
+    ex:"평성(낮은 소리)은 점을 찍지 않고, 거성(높은 소리)은 점을 한 개, 상성(처음은 낮고 나중이 높은 소리)은 점을 두 개 찍는다." },
+
+  { cat:"문법",
+    q:"중세 국어 주격 조사의 실현 형태와 예를 바르게 짝지은 것은?",
+    o:["'이' – 부톄(부텨+이)","'ㅣ' – 사ᄅᆞ미(사ᄅᆞᆷ+ㅣ)","생략(ø) – 불휘(불휘+ø)","'가' – 부톄(부텨+가)"],
+    a:2,
+    ex:"중세 국어에서는 주격 조사로 '이'가 쓰였고 '가'는 쓰이지 않았다. 주격 조사 '이'는 환경에 따라 '이', 'ㅣ'로 실현되고, 생략되기도 하였다. 예) 사ᄅᆞ미(사ᄅᆞᆷ+이), 부톄(부텨+ㅣ), 불휘(불휘+ø)" },
+
+  { cat:"문법",
+    q:"'ᄒᆞᆷ(ᄒᆞ-+-옴)', '여름(열-+-움)'에서 확인할 수 있는 중세 국어의 명사형 어미는?",
+    o:["-옴/-움","-이","-ㅅ","-ᄂᆞ니"],
+    a:0,
+    ex:"중세 국어에서는 명사형 어미로 '-옴/-움'이 쓰였다. 'ᄒᆞᆷ(ᄒᆞ-+-옴)', '여름(열-+-움)'에서 이를 확인할 수 있다." },
+
+  { cat:"문법",
+    q:"'나랏 ᄆᆞᆯ(나라의 말)'처럼 중세 국어에서 관형격 조사로 쓰이기도 한 것은?",
+    o:["ㅣ","ㅅ","ㆍ","ㆁ"],
+    a:1,
+    ex:"현대 국어와 달리 중세 국어에서는 관형격 조사로 'ㅅ'이 쓰이기도 하였다. 예) 나랏 ᄆᆞᆯ → 나라의 말" },
+
+  { cat:"표기",
+    q:"중세 국어의 표기에 대한 설명으로 <u>옳지 않은</u> 것은?",
+    o:["세로쓰기를 하였다.","띄어쓰기를 하지 않았다.","글자 왼쪽에 방점을 찍어 성조를 표시하였다.","여러 형태소가 연결될 때 각각을 밝혀 끊어 적는 것이 일반적이었다."],
+    a:3,
+    ex:"중세 국어에서는 현대 국어와 달리 세로쓰기를 하였고, 띄어쓰기를 하지 않았다. 글자 왼쪽에는 성조를 나타내는 방점을 찍었다. 또 일반적으로 이어 적기를 하였다." },
+
+  { cat:"표기",
+    q:"'깊은'이 아니라 '기픈'으로 적은 것처럼, 앞 음절의 종성을 다음 음절의 초성으로 옮겨 적는 방법은?",
+    o:["끊어 적기","이어 적기","8종성법","어두 자음군"],
+    a:1,
+    ex:"이어 적기는 앞 음절의 종성을 다음 음절의 초성으로 옮겨 적는 방법이다(예: 사ᄅᆞ미, 업스니). 끊어 적기는 여러 형태소가 연결될 때 각각을 음절 단위로 밝혀 적는 방법이다(예: 사람이, 없으니)." },
+
+  { cat:"표기",
+    q:"훈민정음 창제 당시 종성(받침)으로 쓰는 것을 원칙으로 한 8개 자음, 즉 8종성법에 들어가지 <u>않는</u> 것은?",
+    o:["ㆁ","ㅅ","ㄷ","ㅈ"],
+    a:3,
+    ex:"훈민정음이 창제된 당시에는 종성으로 'ㄱ, ㆁ, ㄷ, ㄴ, ㅂ, ㅁ, ㅅ, ㄹ' 여덟 자만 쓰는 것을 원칙으로 하였다(8종성법)." },
+
+  { cat:"어휘",
+    q:"중세 국어의 어휘에 대한 설명으로 알맞은 것은?",
+    o:["현대 국어에 비해 고유어가 적게 쓰였다.","한자어의 유입이 증가하면서 고유어와 한자어가 경쟁하였다.","외래어는 전혀 쓰이지 않았다.","시간이 흘러도 어휘의 의미나 형태는 변하지 않았다."],
+    a:1,
+    ex:"중세 국어 시기에는 현대 국어에 비해 고유어가 많이 쓰였다. 하지만 한자어의 유입이 증가하면서 고유어와 한자어가 경쟁하였고, 이전에 비해 한자어가 많이 쓰이게 되었다. 외래어도 있었는데 중국어, 몽골어, 여진어 등이 유입되어 쓰이기도 하였다. 또 시간의 흐름에 따라 어휘의 의미나 형태가 변하는 경우도 있었다." },
+
+  { cat:"용비어천가",
+    q:"『용비어천가(龍飛御天歌)』에 대한 설명으로 알맞은 것은?",
+    o:["고려 건국을 기리기 위해 지은 노래이다.","세종 29년(1447)에 간행된 악장이다.","임진왜란이 끝난 뒤에 간행되었다.","띄어쓰기를 하여 가로로 쓴 작품이다."],
+    a:1,
+    ex:"『용비어천가』는 세종 29년(1447)에 간행된 악장으로, 조선을 세우기까지 선조들이 쌓은 공덕을 기리고 조선 건국의 정당성을 밝히는 내용을 담았다." },
+
+  { cat:"용비어천가",
+    src:"불휘 기픈 남ᄀᆞᆫ ᄇᆞᄅᆞ매 아니 뮐ᄊᆡ 곶 됴코 여름 하ᄂᆞ니",
+    q:"위 자료에 나타난 중세 국어의 특징으로 <u>옳지 않은</u> 것은?",
+    o:["'불휘'는 주격 조사가 생략된 것이다.","'ᄇᆞᄅᆞ매'는 양성 모음끼리 어울린 것으로 보아 모음 조화가 잘 지켜졌다.","'하ᄂᆞ니'의 기본형 '하다'는 '많다'라는 뜻이다.","'기픈'은 형태소를 밝혀 끊어 적은 것이다."],
+    a:3,
+    ex:"'깊은'이 아니라 '기픈'으로 쓴 것으로 보아, 소리 나는 대로 이어 적기를 하였다. '불휘'는 주격 조사가 생략된 것이며(불휘+ø), 'ᄇᆞᄅᆞ매'에는 현대 국어에는 없는 'ㆍ'가 있고 양성 모음끼리 어울려 모음 조화가 지켜졌다. '하ᄂᆞ니'의 기본형 '하다'는 '많다'라는 뜻이다." },
+];
+
+/* ===================== 소리 ===================== */
+let AC = null, soundOn = true;
+function audio(){ try{ AC = AC || new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); }catch(e){} return AC; }
+function tone(freq, start, dur, type="triangle", vol=.22){
+  const ac = audio(); if(!ac || !soundOn) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.value = freq;
+  const t = ac.currentTime + start;
+  g.gain.setValueAtTime(.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t+.02);
+  g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur+.05);
+}
+const PRAISES = ["참 잘했어요!","훌륭해요!","정답이에요!","대단해요!","멋져요!","완벽해요!"];
+function praiseSound(){
+  // 칭찬 멜로디(도-미-솔-도↑) + 반짝 소리
+  [523,659,784,1047].forEach((f,i)=>tone(f, i*.09, .25));
+  tone(1568,.38,.35,"sine",.12); tone(2093,.46,.35,"sine",.1);
+}
+function wrongSound(){ tone(330,0,.18,"square",.08); tone(262,.16,.28,"square",.08); }
+function fanfare(){ [392,523,659,784,659,784,1047].forEach((f,i)=>tone(f,i*.13,.3,"triangle",.2)); }
+function speak(text){
+  if(!soundOn || !("speechSynthesis" in window)) return;
+  try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang="ko-KR"; u.rate=1.1; u.pitch=1.3; speechSynthesis.speak(u);}catch(e){}
+}
+document.getElementById("soundBtn").onclick = e=>{
+  soundOn = !soundOn; e.currentTarget.textContent = soundOn ? "🔊" : "🔇";
+};
+
+/* ===================== 랭킹 저장 ===================== */
+const KEY = "midkor_quiz_rank_v1";
+function loadRank(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return MEM_RANK; } }
+let MEM_RANK = [];
+function saveRank(list){ MEM_RANK = list; try{ localStorage.setItem(KEY, JSON.stringify(list)); }catch(e){} }
+
+/* ===================== 진행 ===================== */
+const $ = id => document.getElementById(id);
+let G = null;
+
+function show(id){
+  ["start","quiz","result"].forEach(s=>$(s).classList.toggle("hidden", s!==id));
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function start(){
+  const name = $("nameInput").value.trim();
+  if(!name){ $("warn").textContent = "이름(또는 번호)을 먼저 입력해 주세요."; $("nameInput").focus(); return; }
+  $("warn").textContent = "";
+  audio();               // 모바일에서 소리를 쓰려면 첫 터치 때 오디오를 켜야 함
+  tone(660,0,.12);
+  // 문항 순서는 교과서 흐름대로, 보기 순서만 섞음
+  const qs = QUESTIONS.map(q=>{
+    const idx = shuffle([0,1,2,3]);
+    return {...q, o: idx.map(i=>q.o[i]), a: idx.indexOf(q.a)};
+  });
+  G = { name, qs, i:0, correct:0, log:[], t0:Date.now(), locked:false };
+  show("quiz"); render();
+}
+
+function render(){
+  const q = G.qs[G.i]; G.locked = false;
+  $("qn").textContent = G.i+1;
+  $("bar").style.width = (G.i/G.qs.length*100)+"%";
+  $("live").textContent = Math.round(G.correct/G.qs.length*100)+"점";
+  $("cat").textContent = q.cat;
+  $("q").innerHTML = q.q;
+  if(q.src){ $("src").innerHTML = q.src + "<small>— 『용비어천가』 (1447)</small>"; $("src").classList.remove("hidden"); }
+  else $("src").classList.add("hidden");
+  const nums = ["①","②","③","④"];
+  $("opts").innerHTML = q.o.map((t,k)=>`<button class="opt" data-k="${k}"><span class="k">${nums[k]}</span><span>${t}</span></button>`).join("");
+  $("opts").querySelectorAll(".opt").forEach(b=>b.onclick=()=>choose(+b.dataset.k));
+  $("judge").textContent = ""; $("judge").className = "judge";
+  $("nextBtn").classList.add("hidden");
+}
+
+function choose(k){
+  if(G.locked) return; G.locked = true;
+  const q = G.qs[G.i], ok = k===q.a;
+  const btns = $("opts").querySelectorAll(".opt");
+  btns.forEach(b=>b.disabled=true);
+  btns[q.a].classList.add("correct");
+  if(!ok) btns[k].classList.add("wrong");
+  G.log.push({q, chosen:k, ok});
+  if(ok){
+    G.correct++;
+    const p = PRAISES[Math.floor(Math.random()*PRAISES.length)];
+    praiseSound(); setTimeout(()=>speak(p),250);
+    showPraise("🎉 "+p); burst();
+    $("judge").textContent = "⭕ 정답!"; $("judge").className="judge ok";
+  }else{
+    wrongSound();
+    $("judge").textContent = "❌ 아쉬워요! 해설은 마지막에 확인해요."; $("judge").className="judge bad";
+  }
+  $("live").textContent = Math.round(G.correct/G.qs.length*100)+"점";
+  const nb = $("nextBtn");
+  nb.textContent = G.i+1 < G.qs.length ? "다음 문제 ▶" : "점수 확인하기 ▶";
+  nb.classList.remove("hidden");
+  setTimeout(()=>nb.scrollIntoView({behavior:"smooth", block:"nearest"}), 150);
+}
+
+function next(){
+  G.i++;
+  if(G.i < G.qs.length){ render(); window.scrollTo({top:0,behavior:"smooth"}); }
+  else finish();
+}
+
+function showPraise(t){
+  const p=$("praise"); p.textContent=t; p.classList.add("show");
+  setTimeout(()=>p.classList.remove("show"),900);
+}
+function burst(){
+  const b=$("burst"), icons=["⭐","✨","🌟","💮","🎊"];
+  for(let i=0;i<14;i++){
+    const s=document.createElement("span");
+    s.textContent=icons[i%icons.length];
+    s.style.left="50%"; s.style.top="38%";
+    const ang=Math.random()*Math.PI*2, r=110+Math.random()*120;
+    s.style.setProperty("--dx",Math.cos(ang)*r+"px"); s.style.setProperty("--dy",Math.sin(ang)*r+"px");
+    b.appendChild(s); setTimeout(()=>s.remove(),1000);
+  }
+}
+
+/* ===================== 결과 ===================== */
+function finish(){
+  const total = G.qs.length, sec = Math.round((Date.now()-G.t0)/1000);
+  const score = Math.round(G.correct/total*100);
+  const rec = {name:G.name, correct:G.correct, score, sec, at:Date.now()};
+  const list = loadRank(); list.push(rec); saveRank(list);
+  G.rec = rec;
+
+  show("result"); fanfare();
+  $("who").textContent = G.name + " 님의 결과";
+  $("scoreNum").textContent = score;
+  $("scoreSub").textContent = `점 · ${G.correct}/${total} 정답`;
+  setTimeout(()=>$("ring").style.strokeDashoffset = 452.4*(1-score/100), 80);
+  $("msg").textContent = score>=90 ? "중세 국어 박사예요! 👑" : score>=70 ? "아주 잘했어요! 👏" : score>=50 ? "조금만 더 힘내요! 💪" : "해설과 개념을 다시 살펴봐요 📖";
+
+  renderRank(); renderExp(); renderConcept();
+  setTab("rank");
+}
+
+function renderRank(){
+  const list = loadRank().slice().sort((a,b)=> b.correct-a.correct || a.sec-b.sec || a.at-b.at);
+  const top = list.slice(0,3);
+  const fmt = s => s>=60 ? `${Math.floor(s/60)}분 ${s%60}초` : `${s}초`;
+  const cell = (r,n)=> r ? `<div class="pod r${n} ${r.at===G.rec.at?'me':''}"><div class="nm">${esc(r.name)}</div><div class="sc">${r.score}점 · ${fmt(r.sec)}</div><div class="blk">${n}</div></div>`
+                        : `<div class="pod r${n}"><div class="nm">-</div><div class="sc">&nbsp;</div><div class="blk">${n}</div></div>`;
+  $("podium").innerHTML = cell(top[1],2) + cell(top[0],1) + cell(top[2],3);
+  const my = list.findIndex(r=>r.at===G.rec.at)+1;
+  $("myrank").innerHTML = `내 순위: <span style="color:var(--red)">${my}위</span> / ${list.length}명 · 걸린 시간 ${fmt(G.rec.sec)}`;
+}
+
+function renderExp(){
+  const nums = ["①","②","③","④"];
+  $("t-exp").innerHTML = G.log.map((l,i)=>`
+    <div class="exp ${l.ok?'o':'x'}">
+      <div class="h"><span class="mark">${l.ok?'⭕':'❌'}</span>${i+1}번 · ${l.q.cat}</div>
+      <div class="qq">${l.q.q.replace(/<[^>]+>/g,"")}</div>
+      ${l.q.src?`<div class="source" style="font-size:18px">${l.q.src}</div>`:""}
+      <div class="ans">정답: <b>${nums[l.q.a]} ${l.q.o[l.q.a]}</b></div>
+      ${l.ok?"":`<div class="mine">내가 고른 답: ${nums[l.chosen]} ${l.q.o[l.chosen]}</div>`}
+      <div class="why">💡 ${l.q.ex}</div>
+    </div>`).join("");
+}
+
+function renderConcept(){
+  $("t-concept").innerHTML = `
+    <h3>국어의 시대 구분</h3>
+    <div class="tl"><div style="background:#a3876a">고대 국어</div><div style="background:var(--red);flex:1.5">중세 국어</div><div style="background:#7b5534">근대 국어</div><div style="background:#5a3a22">현대 국어</div></div>
+    <ul>
+      <li>676 신라 삼국 통일 · 918 고려 건국 · <span class="term">1443 훈민정음 창제</span> · 1592 임진왜란 발발 · 1894 갑오개혁</li>
+      <li>언어는 다양한 요인에 의해 끊임없이 변한다. 고려가 건국된 10세기 초부터 임진왜란이 일어난 16세기 말까지의 국어를 <span class="term">중세 국어</span>라고 한다.</li>
+    </ul>
+
+    <h3>음운</h3>
+    <ul>
+      <li>오늘날에는 없는 <span class="term">'ㅿ(반치음)', 'ㆁ(옛이응)', 'ㆍ(아래아)'</span> 같은 음운이 있었다.</li>
+      <li>'ㅄ, ㅶ, ㅳ' 등과 같이 자음이 단어의 첫머리에 연속으로 둘 이상 오는 <span class="term">어두 자음군</span>이 있었다.</li>
+      <li>양성 모음은 양성 모음끼리, 음성 모음은 음성 모음끼리 어울리는 <span class="term">모음 조화</span>가 현대 국어에 비해 엄격하게 지켜졌다.</li>
+      <li>음절 안에서 나타나는 소리의 높낮이로서 단어의 뜻을 구별하는 <span class="term">성조</span>가 있었다.</li>
+    </ul>
+    <table class="t"><tr><th>양성 모음</th><th>음성 모음</th><th>중성 모음</th></tr><tr><td>ㆍ, ㅗ, ㅏ</td><td>ㅡ, ㅜ, ㅓ</td><td>ㅣ</td></tr></table>
+
+    <h3>문법</h3>
+    <ul>
+      <li>주격 조사로 <span class="term">'이'</span>가 쓰였고, <span class="term">'가'는 쓰이지 않았다</span>. 주격 조사 '이'는 환경에 따라 '이', 'ㅣ'로 실현되고, 생략되기도 하였다.<br>예) 사ᄅᆞ미(사ᄅᆞᆷ+이), 부톄(부텨+ㅣ), 불휘(불휘+ø)</li>
+      <li>명사형 어미로 <span class="term">'-옴/-움'</span>이 쓰였다. 예) ᄒᆞᆷ(ᄒᆞ-+-옴), 여름(열-+-움)</li>
+      <li>관형격 조사로 <span class="term">'ㅅ'</span>이 쓰이기도 하였다. 예) 나랏 ᄆᆞᆯ → 나라의 말</li>
+    </ul>
+
+    <h3>표기</h3>
+    <ul>
+      <li><span class="term">세로쓰기</span>를 하였고, <span class="term">띄어쓰기를 하지 않았다</span>.</li>
+      <li>글자 왼쪽에 성조를 나타내는 <span class="term">방점</span>을 찍었다.</li>
+      <li>일반적으로 <span class="term">이어 적기</span>를 하였다. (이어 적기: 앞 음절의 종성을 다음 음절의 초성으로 옮겨 적는 방법 / 끊어 적기: 여러 형태소가 연결될 때 각각을 음절 단위로 밝혀 적는 방법)</li>
+      <li>훈민정음이 창제된 당시에는 종성으로 'ㄱ, ㆁ, ㄷ, ㄴ, ㅂ, ㅁ, ㅅ, ㄹ' 여덟 자만 쓰는 것을 원칙으로 하였다(<span class="term">8종성법</span>).</li>
+    </ul>
+    <table class="t"><tr><th>성조</th><th>방점</th></tr>
+      <tr><td>평성(낮은 소리)</td><td>점을 찍지 않음</td></tr>
+      <tr><td>거성(높은 소리)</td><td>점을 한 개 찍음</td></tr>
+      <tr><td>상성(처음은 낮고 나중이 높은 소리)</td><td>점을 두 개 찍음</td></tr></table>
+
+    <h3>어휘</h3>
+    <ul>
+      <li>현대 국어에 비해 <span class="term">고유어</span>가 많이 쓰였다.</li>
+      <li>한자어의 유입이 증가하면서 <span class="term">고유어와 한자어가 경쟁</span>하였고, 이전에 비해 한자어가 많이 쓰이게 되었다.</li>
+      <li>외래어도 있었는데 <span class="term">중국어, 몽골어, 여진어</span> 등이 유입되어 쓰이기도 하였다.</li>
+      <li>시간의 흐름에 따라 어휘의 의미나 형태가 변하는 경우도 있었다.</li>
+    </ul>
+
+    <h3>『용비어천가』로 확인하기</h3>
+    <div class="yb">불휘 기픈 남ᄀᆞᆫ ᄇᆞᄅᆞ매 아니 뮐ᄊᆡ 곶 됴코 여름 하ᄂᆞ니<br>ᄉᆡ미 기픈 므른 ᄀᆞᄆᆞ래 아니 그츨ᄊᆡ 내히 이러 바ᄅᆞ래 가ᄂᆞ니
+      <small>[현대어 풀이] 뿌리가 깊은 나무는 바람에 아니 움직이므로, 꽃 좋고 열매가 많으니. 샘이 깊은 물은 가뭄에 아니 그치므로, 내(川)가 이루어져 바다에 가느니.</small>
+      <small>세종 29년(1447)에 간행된 악장으로, 조선을 세우기까지 선조들이 쌓은 공덕을 기리고 조선 건국의 정당성을 밝히는 내용을 담았다.</small></div>
+    <ul>
+      <li>주격 조사로 '이'가 쓰였고, '가'는 쓰이지 않았다. 주격 조사 '이'는 환경에 따라 '이', 'ㅣ'로 실현되고, 생략되기도 하였다. → 불휘+ø (주격 조사 생략)</li>
+      <li>세로쓰기를 하였고, 띄어쓰기를 하지 않았으며, 글자 왼쪽에 방점을 찍어 성조를 표시하였다.</li>
+      <li>'깊은'이 아니라 '기픈'으로 쓴 것으로 보아, 소리 나는 대로 이어 적기를 하였다.</li>
+      <li>'ㆍ'처럼 현대 국어에는 없는 음운이 있었고, 양성 모음끼리 어울린 것으로 보아 모음 조화가 잘 지켜졌다.</li>
+      <li>'하ᄂᆞ니'의 기본형 '하다'는 '많다'라는 뜻이었다.</li>
+    </ul>`;
+}
+
+function setTab(t){
+  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on", b.dataset.t===t));
+  ["rank","exp","concept"].forEach(x=>$("t-"+x).classList.toggle("hidden", x!==t));
+}
+
+/* ===================== 이벤트 ===================== */
+$("startBtn").onclick = start;
+$("nameInput").addEventListener("keydown", e=>{ if(e.key==="Enter") start(); });
+$("nextBtn").onclick = next;
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.t));
+$("againBtn").onclick = ()=>{ $("nameInput").value = G.name; start(); };
+$("homeBtn").onclick = ()=>{ $("nameInput").value = ""; show("start"); };
+let resetArmed = false;
+$("resetBtn").onclick = e=>{
+  if(!resetArmed){ resetArmed = true; e.target.textContent = "한 번 더 누르면 모든 기록이 지워집니다"; setTimeout(()=>{resetArmed=false; e.target.textContent="랭킹 기록 초기화(교사용)";},4000); return; }
+  saveRank([]); resetArmed=false; e.target.textContent="기록을 초기화했습니다";
+  if(G && G.rec){ $("podium").innerHTML=""; $("myrank").textContent="랭킹 기록이 초기화되었습니다."; }
+};
+</script>
+</body>
+</html>
